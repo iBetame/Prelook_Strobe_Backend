@@ -1,0 +1,9 @@
+mysql:
+  mysql_username: root
+  mysql_password: uozi10805
+  mysql_database: pl_strobe_sql
+app:
+  app_id: wx270545c205992deb
+  app_secret: 5b8f250a4ff70d36bed66bc2aff7dade
+  run_port: 9091
+  jwt_key: prelook20230612

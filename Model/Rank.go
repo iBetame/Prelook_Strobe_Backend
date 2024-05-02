@@ -1,40 +1,43 @@
 package Model
 
 import (
-	gonanoid "github.com/matoous/go-nanoid/v2"
-	"gorm.io/gorm"
+	"errors"
 	"strconv"
 	"time"
+
+	gonanoid "github.com/matoous/go-nanoid/v2"
+	"gorm.io/gorm"
 )
 
 type Rank struct {
-	ID          int           `json:"id"`
-	RankID		string		  `json:"rank_id"`
-	Name        string        `json:"name"`
-	Description string        `json:"des"`
-	Type        string        `json:"type"`
-	CreateTime  time.Time     `json:"createTime" gorm:"column:create_datetime"`
+	ID          int       `json:"id"`
+	RankID      string    `json:"rank_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"des"`
+	Type        string    `json:"type"`
+	Status      string    `json:"status"`
+	CreateTime  time.Time `json:"createTime" gorm:"column:create_datetime"`
 }
 
 type RankingItem struct {
-	ID              int       `json:"id"`
-	RankID          string    `json:"rank_id"`
-	Brand           string    `json:"brand"`
-	Name            string    `json:"name"`
-	RankingIndex    string    `json:"ranking_index"`
-	Score           string    `json:"score"`
-	DrawingPoints   string    `json:"drawing_points" gorm:"type:longtext"`
-	CreateDateTime  time.Time `json:"create_datetime" gorm:"column:create_datetime"`
+	ID             int       `json:"id"`
+	RankID         string    `json:"rank_id"`
+	Brand          string    `json:"brand"`
+	Name           string    `json:"name"`
+	RankingIndex   string    `json:"ranking_index"`
+	Score          string    `json:"score"`
+	DrawingPoints  string    `json:"drawing_points" gorm:"type:longtext"`
+	CreateDateTime time.Time `json:"create_datetime" gorm:"column:create_datetime"`
 }
 
 type RankData struct {
-	ID          int           `json:"id"`
-	RankID		string		  `json:"rank_id"`
-	Name        string        `json:"name"`
-	Description string        `json:"des"`
-	Type        string           `json:"type"`
-	Rankings    []RankingItem `json:"rankings"`
-	CreateTime  time.Time     `json:"createTime" gorm:"column:create_datetime"`
+	ID          int    `json:"id"`
+	RankID      string `json:"rank_id"`
+	Name        string `json:"name"`
+	Description string `json:"des"`
+	Type        string `json:"type"`
+	// Rankings    []RankingItem `json:"rankings"`
+	CreateTime time.Time `json:"createTime" gorm:"column:create_datetime"`
 }
 
 // 定义个全局函数
@@ -57,11 +60,11 @@ func GetRankByID(id string) (resultData RankData, err error) {
 	}
 
 	// 查询关联的排名项
-	var rankingItems []RankingItem
-	err = rankRankItemTable().Where("rank_id = ?", rank.RankID).Find(&rankingItems).Error
-	if err != nil {
-		return RankData{}, err
-	}
+	// var rankingItems []RankingItem
+	// err = rankRankItemTable().Where("rank_id = ?", rank.RankID).Find(&rankingItems).Error
+	// if err != nil {
+	// 	return RankData{}, err
+	// }
 
 	// 将关联的排名项添加到排行榜中
 	resultData.ID = rank.ID
@@ -70,11 +73,10 @@ func GetRankByID(id string) (resultData RankData, err error) {
 	resultData.Description = rank.Description
 	resultData.Type = rank.Type
 	resultData.CreateTime = rank.CreateTime
-	resultData.Rankings = rankingItems
+	// resultData.Rankings = rankingItems
 
 	return resultData, nil
 }
-
 
 // UpdateRank 函数用于更新或创建排行榜
 // 参数：myRank 为要更新或创建的排行榜
@@ -82,7 +84,19 @@ func GetRankByID(id string) (resultData RankData, err error) {
 func UpdateRank(myRank Rank) (resultRank Rank, err error) {
 	rankId, err := gonanoid.Generate("1234567890", 9)
 	rankId = "PL-" + rankId
-	if err != nil {}
+	if err != nil {
+		return
+	}
+
+	if myRank.Status == "Published" {
+		var rankCheck Rank
+		rankRankTable().Where("status", "Published").Where("type", myRank.Type).First(&rankCheck)
+
+		if rankCheck.ID != 0 && rankCheck.ID != myRank.ID {
+			err = errors.New("该产品类别下已存在发布的排行")
+			return
+		}
+	}
 	// 如果 myRank.ID 为 nil，，说明需要新增一个排行榜
 	if myRank.ID == 0 {
 		// 在数据库中创建排行榜
@@ -96,6 +110,7 @@ func UpdateRank(myRank Rank) (resultRank Rank, err error) {
 		var updateRank Rank
 		updateRank.Name = myRank.Name
 		updateRank.Type = myRank.Type
+		updateRank.Status = myRank.Status
 		updateRank.Description = myRank.Description
 		rankRankTable().Where("id =? ", myRank.ID).Updates(updateRank)
 		err = rankRankTable().Where("id = ?", myRank.ID).First(&resultRank).Error
@@ -107,7 +122,6 @@ func UpdateRank(myRank Rank) (resultRank Rank, err error) {
 // 参数：myRank 为要更新或创建的排行榜
 // 返回值：更新或创建成功后的排行榜实例和可能的错误
 func UpdateRankItem(myRankItem RankingItem) (resultRank RankingItem, err error) {
-	if err != nil {}
 	// 如果 myRank.ID 为 nil，，说明需要新增一个排行榜
 	if myRankItem.ID == 0 {
 		// 在数据库中创建排行榜
@@ -124,9 +138,14 @@ func UpdateRankItem(myRankItem RankingItem) (resultRank RankingItem, err error) 
 		updateRankItem.Brand = myRankItem.Brand
 		updateRankItem.Score = myRankItem.Score
 		updateRankItem.RankID = myRankItem.RankID
+		updateRankItem.DrawingPoints = myRankItem.DrawingPoints
 		rankRankItemTable().Where("id =? ", myRankItem.ID).Updates(updateRankItem)
 		err = rankRankItemTable().Where("id = ?", myRankItem.ID).First(&resultRank).Error
 	}
+	if err != nil {
+		return
+	}
+	err = rankRankTable().Where("rank_id = ?", myRankItem.RankID).Update("create_datetime", time.Now()).Error
 	return resultRank, err
 }
 
@@ -161,7 +180,12 @@ func UpdateRankItem(myRankItem RankingItem) (resultRank RankingItem, err error) 
 // err error - 错误信息
 // Mode：List：普通元素；Dock：首页元素；Top：置顶元素
 
-func SearchRankList(start string, limit string, status string, keyword string, order string) (resultRank []Rank, DataTotal int64, AllTotal int64, PublishedTotal int64, DraftTotal int64, RemovedTotal int64, err error) {
+type APIRank struct {
+	Rank
+	ItemCount int `json:"item_count"`
+}
+
+func SearchRankList(start string, limit string, status string, keyword string, order string) (resultRank []APIRank, DataTotal int64, AllTotal int64, PublishedTotal int64, DraftTotal int64, RemovedTotal int64, err error) {
 	intStart, _ := strconv.Atoi(start)
 	intLimit, _ := strconv.Atoi(limit)
 
@@ -171,56 +195,7 @@ func SearchRankList(start string, limit string, status string, keyword string, o
 
 	// 没有 KeyWords 的情况
 	if keyword != "" {
-		mpTable = mpTable.Where(concatColumns + "like ?", "%" + keyword + "%")
-	}
-
-	if order == "asc" {
-		order = "asc"
-	} else {
-		order = "desc"
-	}
-
-	switch status {
-		case "All":
-			break
-		case "Published":
-			mpTable = mpTable.Where("status == ? AND is_delete != ?", "Published", FALSE)
-			break
-		case "Draft":
-			mpTable = mpTable.Where("status == ? AND is_delete != ?", "Draft", FALSE)
-			break
-		case "Removed":
-			mpTable = mpTable.Where("status == ? AND is_delete != ?", "Removed", TRUE)
-			break
-	}
-
-	err = mpTable.Limit(intLimit).Offset(intStart).Order("create_datetime " + order).Find(&resultRank).Error
-
-	// AllTotal
-	err = rankRankTable().Count(&AllTotal).Error
-	// Published
-	err = rankRankTable().Where("status = ? AND is_delete = ?", "Published", FALSE).Count(&PublishedTotal).Error
-	// Draft
-	err = rankRankTable().Where("status = ? AND is_delete = ?", "Draft", FALSE).Count(&DraftTotal).Error
-	// Removed
-	err = rankRankTable().Where("status = ? AND is_delete = ?", "Removed", TRUE).Count(&RemovedTotal).Error
-	// DataTotal
-	DataTotal = int64(len(resultRank))
-
-	return resultRank, DataTotal, AllTotal, PublishedTotal, DraftTotal, RemovedTotal, err
-}
-
-func SearchRankItemList(start string, limit string, status string, keyword string, order string) (resultRank []RankingItem, DataTotal int64, AllTotal int64, PublishedTotal int64, DraftTotal int64, RemovedTotal int64, err error) {
-	intStart, _ := strconv.Atoi(start)
-	intLimit, _ := strconv.Atoi(limit)
-
-	concatColumns := "CONCAT_WS (rank_id, brand, name)"
-
-	mpTable := rankRankItemTable()
-
-	// 没有 KeyWords 的情况
-	if keyword != "" {
-		mpTable = mpTable.Where(concatColumns + "like ?", "%" + keyword + "%")
+		mpTable = mpTable.Where(concatColumns+"like ?", "%"+keyword+"%")
 	}
 
 	if order == "asc" {
@@ -231,19 +206,71 @@ func SearchRankItemList(start string, limit string, status string, keyword strin
 
 	switch status {
 	case "All":
-		break
+		mpTable = mpTable.Where("ranking.status != ?", "Removed")
 	case "Published":
-		mpTable = mpTable.Where("status == ? AND is_delete != ?", "Published", FALSE)
+		mpTable = mpTable.Where("ranking.status = ? AND ranking.is_delete = ?", "Published", FALSE)
 		break
 	case "Draft":
-		mpTable = mpTable.Where("status == ? AND is_delete != ?", "Draft", FALSE)
+		mpTable = mpTable.Where("ranking.status = ? AND ranking.is_delete = ?", "Draft", FALSE)
 		break
 	case "Removed":
-		mpTable = mpTable.Where("status == ? AND is_delete != ?", "Removed", TRUE)
+		mpTable = mpTable.Where("ranking.status = ? OR ranking.is_delete = ?", "Removed", TRUE)
+		break
+	}
+	// DataTotal
+	mpTable.Count(&DataTotal)
+
+	err = mpTable.Select("ranking.*, count(i.id) as item_count").Joins("left join ranking_item i on i.rank_id=ranking.rank_id and i.is_delete = 'false'").
+		Group("ranking.id").
+		Limit(intLimit).Offset(intStart).Order("create_datetime " + order).
+		Find(&resultRank).Error
+
+	// AllTotal
+	err = rankRankTable().Count(&AllTotal).Error
+	// Published
+	err = rankRankTable().Where("status = ? AND is_delete = ?", "Published", FALSE).Count(&PublishedTotal).Error
+	// Draft
+	err = rankRankTable().Where("status = ? AND is_delete = ?", "Draft", FALSE).Count(&DraftTotal).Error
+	// Removed
+	err = rankRankTable().Where("status = ? OR is_delete = ?", "Removed", TRUE).Count(&RemovedTotal).Error
+
+	return resultRank, DataTotal, AllTotal, PublishedTotal, DraftTotal, RemovedTotal, err
+}
+
+func SearchRankItemList(rank_id string, start int, limit int, status string, keyword string, order string) (resultRank []RankingItem, DataTotal int64, AllTotal int64, PublishedTotal int64, DraftTotal int64, RemovedTotal int64, err error) {
+	concatColumns := "CONCAT_WS (brand, name)"
+
+	mpTable := rankRankItemTable().Where("rank_id", rank_id)
+
+	// 没有 KeyWords 的情况
+	if keyword != "" {
+		mpTable = mpTable.Where(concatColumns+"like ?", "%"+keyword+"%")
+	}
+
+	if order == "asc" {
+		order = "asc"
+	} else {
+		order = "desc"
+	}
+
+	switch status {
+	case "All":
+		mpTable = mpTable.Where("is_delete = ?", FALSE)
+	case "Published":
+		mpTable = mpTable.Where("status = ? AND is_delete = ?", "Published", FALSE)
+		break
+	case "Draft":
+		mpTable = mpTable.Where("status = ? AND is_delete = ?", "Draft", FALSE)
+		break
+	case "Removed":
+		mpTable = mpTable.Where("status = ? OR is_delete = ?", "Removed", TRUE)
 		break
 	}
 
-	err = mpTable.Limit(intLimit).Offset(intStart).Order("create_datetime " + order).Find(&resultRank).Error
+	// DataTotal
+	mpTable.Count(&DataTotal)
+
+	err = mpTable.Limit(limit).Offset(start).Order("score " + order).Find(&resultRank).Error
 
 	// AllTotal
 	err = rankRankItemTable().Count(&AllTotal).Error
@@ -252,33 +279,53 @@ func SearchRankItemList(start string, limit string, status string, keyword strin
 	// Draft
 	err = rankRankItemTable().Where("status = ? AND is_delete = ?", "Draft", FALSE).Count(&DraftTotal).Error
 	// Removed
-	err = rankRankItemTable().Where("status = ? AND is_delete = ?", "Removed", TRUE).Count(&RemovedTotal).Error
-	// DataTotal
-	DataTotal = int64(len(resultRank))
+	err = rankRankItemTable().Where("status = ? OR is_delete = ?", "Removed", TRUE).Count(&RemovedTotal).Error
 
 	return resultRank, DataTotal, AllTotal, PublishedTotal, DraftTotal, RemovedTotal, err
 }
 
-//func ChangeRankState(ids []uint, state string) ([]Rank, error) {
-//	// 批量查询 rank
-//	var rank []Rank
-//	if err := rankRankTable().Where("id IN (?)", ids).Find(&rank).Error; err != nil {
-//		return nil, err
-//	}
-//
-//	// 批量更新状态
-//	err := rankRankTable().Where("id IN (?)", ids).Updates(map[string]interface{}{"rank_state": state}).Error
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	// 批量查询并返回结果
-//	var updatedRanks []Rank
-//	if err := rankRankTable().Where("id IN (?)", ids).Find(&updatedRanks).Error; err != nil {
-//		return nil, err
-//	}
-//	return updatedRanks, nil
-//}
+func ChangeRankState(ids []uint, state string) ([]Rank, error) {
+	// 批量查询 rank
+	var rank []Rank
+	if err := rankRankTable().Where("id IN (?)", ids).Find(&rank).Error; err != nil {
+		return nil, err
+	}
+
+	// 批量更新状态
+	err := rankRankTable().Where("id IN (?)", ids).Updates(map[string]interface{}{"status": state}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 批量查询并返回结果
+	var updatedRanks []Rank
+	if err := rankRankTable().Where("id IN (?)", ids).Find(&updatedRanks).Error; err != nil {
+		return nil, err
+	}
+	return updatedRanks, nil
+}
+
+func ChangeRankItemDeleteState(ids []uint, state string) ([]Rank, error) {
+	// 批量查询 rank item
+	var rank []Rank
+	if err := rankRankItemTable().Where("id IN (?)", ids).Find(&rank).Error; err != nil {
+		return nil, err
+	}
+
+	// 批量更新状态
+	err := rankRankItemTable().Where("id IN (?)", ids).Updates(map[string]interface{}{"is_delete": state}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 批量查询并返回结果
+	var updatedRanks []Rank
+	if err := rankRankTable().Where("id IN (?)", ids).Find(&updatedRanks).Error; err != nil {
+		return nil, err
+	}
+	return updatedRanks, nil
+}
+
 //
 //// 删除 Rank
 //func EmptyRank() (Results []Rank, DeleteTotal int, err error) {

@@ -24,6 +24,8 @@ func InitRouter() *gin.Engine {
 		apiv1manage.GET("/getRankByID", API.GetRankByID)
 		apiv1manage.POST("/updateRank", API.UpdateRank)
 		apiv1manage.POST("/updateRankItem", API.UpdateRankItem)
+		apiv1manage.POST("/updateRankState", API.UpdateRankState)
+		apiv1manage.POST("/updateRankItemState", API.UpdateRankItemDeleteState)
 	}
 
 	//apiv1wx := r.Group("/wx")

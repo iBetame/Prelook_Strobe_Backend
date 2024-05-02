@@ -1,10 +1,12 @@
 package API
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/sunbelife/Prelook_Strobe_Backend/Model"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/cast"
+	"github.com/sunbelife/Prelook_Strobe_Backend/Model"
 )
 
 type SearchRankBody struct {
@@ -69,7 +71,7 @@ func UpdateRank(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    http.StatusBadRequest,
-			"message": "更新失败，可能是参数错误",
+			"message": "更新失败 " + err.Error(),
 			"data":    err.Error(),
 		})
 	} else {
@@ -127,17 +129,17 @@ func GetRankList(c *gin.Context) {
 	}
 }
 
-
 func GetRankItemList(c *gin.Context) {
-	start := c.Query("start")
-	limit := c.Query("limit")
+	rank_id := c.Query("rank_id")
+	start := cast.ToInt(c.Query("start"))
+	limit := cast.ToInt(c.Query("limit"))
 	status := c.Query("type")
 	keyword := c.Query("keyword")
 	order := c.Query("order")
 
 	// 调用 Model 层获取类型为 Dock 的排行榜数据
 
-	Result, DataTotal, AllTotal, PublishedTotal, DraftTotal, RemovedTotal, err := Model.SearchRankItemList(start, limit, status, keyword, order)
+	Result, DataTotal, AllTotal, PublishedTotal, DraftTotal, RemovedTotal, err := Model.SearchRankItemList(rank_id, start, limit, status, keyword, order)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -146,6 +148,10 @@ func GetRankItemList(c *gin.Context) {
 			"data":    err,
 		})
 	} else {
+		// 排序
+		for k := range Result {
+			Result[k].RankingIndex = cast.ToString(start + k + 1)
+		}
 		// 输出为 JSON
 		c.JSON(http.StatusOK, gin.H{
 			"code":            http.StatusOK,
@@ -191,6 +197,48 @@ func GetRankByID(c *gin.Context) {
 		"code":    http.StatusOK,
 		"message": "获取排行榜数据成功",
 		"data":    rankData,
+	})
+}
+
+func UpdateRankState(c *gin.Context) {
+	var json struct {
+		IDs   []uint `json:"ids"`
+		State string `json:"state"`
+	}
+	c.ShouldBind(&json)
+	_, err := Model.ChangeRankState(json.IDs, json.State)
+	if err != nil {
+		c.SecureJSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": "更新状态失败",
+			"data":    err.Error(),
+		})
+		return
+	}
+	c.SecureJSON(http.StatusOK, gin.H{
+		"code":    http.StatusOK,
+		"message": "更新状态成功",
+	})
+}
+
+func UpdateRankItemDeleteState(c *gin.Context) {
+	var json struct {
+		IDs   []uint `json:"ids"`
+		State string `json:"state"`
+	}
+	c.ShouldBind(&json)
+	_, err := Model.ChangeRankItemDeleteState(json.IDs, json.State)
+	if err != nil {
+		c.SecureJSON(http.StatusInternalServerError, gin.H{
+			"code":    http.StatusInternalServerError,
+			"message": "更新状态失败",
+			"data":    err.Error(),
+		})
+		return
+	}
+	c.SecureJSON(http.StatusOK, gin.H{
+		"code":    http.StatusOK,
+		"message": "更新状态成功",
 	})
 }
 

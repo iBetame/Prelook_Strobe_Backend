@@ -4,6 +4,7 @@ import (
 	"github.com/sunbelife/Prelook_Strobe_Backend/Config"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"log"
 )
 
@@ -25,9 +26,11 @@ func Init() {
 		log.Println("mysql config err")
 	}
 
-	dsn := MySQLConfig.MySQL.UserName + ":" + MySQLConfig.MySQL.PassWord + "@tcp(127.0.0.1:3306)/" + MySQLConfig.MySQL.Database + "?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := MySQLConfig.MySQL.UserName + ":" + MySQLConfig.MySQL.PassWord + "@tcp(localhost:3306)/" + MySQLConfig.MySQL.Database + "?charset=utf8mb4&parseTime=True&loc=Local"
 
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
 
 	// 如果数据库链接异常则抛出
 	if err != nil {

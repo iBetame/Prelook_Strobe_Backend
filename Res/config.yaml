@@ -1,4 +1,6 @@
 mysql:
+  mysql_host: 172.17.0.1
+  mysql_port: 3306
   mysql_username: root
   mysql_password: prelook0609+1S
   mysql_database: pl_strobe_sql

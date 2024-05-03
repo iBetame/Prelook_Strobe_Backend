@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"log"
+	"fmt"
 )
 
 const TIME_LAYOUT = "2006-01-02 15:04:05"
@@ -26,7 +27,7 @@ func Init() {
 		log.Println("mysql config err")
 	}
 
-	dsn := MySQLConfig.MySQL.UserName + ":" + MySQLConfig.MySQL.PassWord + "@tcp(localhost:3306)/" + MySQLConfig.MySQL.Database + "?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", MySQLConfig.MySQL.UserName, MySQLConfig.MySQL.PassWord, MySQLConfig.MySQL.Host, MySQLConfig.MySQL.Port, MySQLConfig.MySQL.Database)
 
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
@@ -34,6 +35,6 @@ func Init() {
 
 	// 如果数据库链接异常则抛出
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
 	}
 }

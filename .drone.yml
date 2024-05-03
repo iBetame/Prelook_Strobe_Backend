@@ -1,0 +1,97 @@
+kind: pipeline
+type: docker
+name: default
+
+steps:
+    - name: start
+      image: fifsky/drone-wechat-work
+      pull: always
+      settings:
+        url:
+          from_secret: wecom_bot_url
+        msgtype: markdown
+        content: |
+          #### 🎉 ${DRONE_REPO} 已提交，开始执行 CI/CD
+          > Author: ${DRONE_COMMIT_AUTHOR}
+          {{ if ne .Event "tag" -}}
+          > Branch: ${DRONE_COMMIT_BRANCH}
+          {{ end -}}
+          > Event: ${DRONE_BUILD_EVENT}
+          > Runner: ${DRONE_STAGE_MACHINE}
+          > Commit: [{{ .Message }}](${DRONE_COMMIT_LINK})
+          > [点击查看](${DRONE_BUILD_LINK})
+
+    - name: compile go
+      image: crazymax/goxx:latest
+      environment:
+          CGO_ENABLED: "1"
+      commands:
+          - goxx-go build -v -o prelook-api -ldflags "-extldflags -static" main.go
+      volumes:
+          - name: go_cache
+            path: /go/pkg
+
+    - name: build and push docker image
+      image: plugins/docker
+      settings:
+          repo: registry.cn-shenzhen.aliyuncs.com/uozi/prelook-strobe-backend
+          registry: registry.cn-shenzhen.aliyuncs.com
+          tags: latest
+          dockerfile: Dockerfile
+          context: .
+          username:
+              from_secret: aliyun_registry_username
+          password:
+              from_secret: aliyun_registry_password
+      when:
+        branch:
+          - main
+        event:
+          - push
+
+    # - name: deploy to prod
+    #   image: appleboy/drone-ssh
+    #   settings:
+    #     host:
+    #       from_secret: ssh_host_prelook
+    #     username:
+    #       from_secret: ssh_username_prelook
+    #     key:
+    #       from_secret: ssh_key_prelook
+    #     script:
+    #       - docker pull registry.cn-shenzhen.aliyuncs.com/uozi/prelook-strobe-backend:latest
+    #       - docker stop prelook-strobe-backend
+    #       - docker rm prelook-strobe-backend
+    #       - docker run -d --name prelook-strobe-backend -v /data/prelook-strobe-backend:/app/Res -p9090:9090
+    #         --restart=always registry.cn-shenzhen.aliyuncs.com/uozi/prelook-strobe-backend
+    #   when:
+    #     event:
+    #       - push
+    #     branch:
+    #       - main
+
+    - name: notify
+      image: fifsky/drone-wechat-work
+      pull: always
+      settings:
+        url:
+          from_secret: wecom_bot_url
+        msgtype: markdown
+        content: |
+          {{ if eq .Status "success" }}
+          #### 🎉 ${DRONE_REPO} 构建成功
+          {{ else }}
+          #### ❌ ${DRONE_REPO} 构建失败
+          {{ end }}
+          > Author: ${DRONE_COMMIT_AUTHOR}
+          > Event: ${DRONE_BUILD_EVENT}
+          > Runner: ${DRONE_STAGE_MACHINE}
+          > Commit: [{{ .Message }}](${DRONE_COMMIT_LINK})
+          > [点击查看](${DRONE_BUILD_LINK})
+      when:
+        status: [ success, failure ]
+
+volumes:
+    - name: go_cache
+      host:
+        path: /tmp/go_cache  # host volume absolute path

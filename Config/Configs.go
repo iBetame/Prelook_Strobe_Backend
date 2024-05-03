@@ -24,6 +24,8 @@ type APP struct {
 }
 
 type MySQL struct {
+	Host 	 string `yaml:"mysql_host"`
+	Port     string `yaml:"mysql_port"`
 	UserName string `yaml:"mysql_username"`
 	PassWord string `yaml:"mysql_password"`
 	Database string `yaml:"mysql_database"`
